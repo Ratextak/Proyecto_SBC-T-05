@@ -1,7 +1,6 @@
 #ifndef CREDENTIALS_H
 #define CREDENTIALS_H
 
-#include <string.h>
 
 #define PROYECTO    "SBC22-T-05 -> Huerto Hidropónico"
 
@@ -16,10 +15,6 @@
 // Credenciales de Telegram y el bot.
 #define TELEGRAM_SERVER "https://api.telegram.org"
 #define BOT_TOKEN       "5885102192:AAGu2_2Dv7RexPQr33EMPs0QVtpbFunBqZw"
-#define BOT_URL         ""   // A falta del método.
-
-//strcat(BOT_URL, TELEGRAM_SERVER);
-//strcat(BOT_URL, "/bot");
-//strcat(BOT_URL, BOT_TOKEN);
+#define BOT_URL         TELEGRAM_SERVER "/bot" BOT_TOKEN   // A falta del método.
 
 #endif

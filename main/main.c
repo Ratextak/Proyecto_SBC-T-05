@@ -33,9 +33,11 @@ static esp_adc_cal_characteristics_t adc1_chars;
 float tempValor = 25.0, ecValor, ecVoltaje, ecAux;
 bool nivelValor;
 
-enum estado {CERRADA, ABIERTA};  // Estado para las bombas y la válvula.
+enum estado {CERRADA , ABIERTA};  // Estado para las bombas y la válvula.
 enum estado valvula = CERRADA;  // Empiezan cerradas.
 enum estado bombaN = CERRADA, bombaP = CERRADA, bombaK = CERRADA;
+
+
 
 enum estado1 {MEDIR, DISPENSAR, VACIAR, TRANSMITIR, RECIBIR};
 enum estado1 modo = MEDIR;  // Cotrolará el modo en el que trabaja el sistema.
@@ -93,16 +95,10 @@ void control_Bombas_Valvula(void) {
     }
 }
 
-/*void actualizar_Thingsboard(void) {
-    while(1) {
-        mqtt_mandar_datos(tempValor, nivelValor, ecValor);
-        vTaskDelay(10000);  // 10 seg.
-    }
-}*/
-
 void principal(void) {
     enum estado1 modo_ant = RECIBIR;  // Modo previo del sistema.
     enum estado1 modo_aux = modo;
+
     while (1) {
         switch (modo) {
             case MEDIR:  // Recabar datos de todos los sensores.
@@ -175,5 +171,4 @@ void app_main(void) {
     // Iniciamos las tareas.
     xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
     xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 512, NULL, 8, NULL);
-    //xTaskCreate(actualizar_Thingsboard, "ThingsBoard", 512, NULL, 7, NULL);
 }
