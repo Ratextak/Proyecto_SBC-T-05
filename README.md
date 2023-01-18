@@ -1,32 +1,29 @@
-# _Sample project_
+# Huerto Hidropónico
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+Proyecto para la asignatura de Sistemas Basados en Computador (SBC).  
+Grupo: SBC-T-05.  
 
-This is the simplest buildable example. The example is used by command `idf.py create-project`
-that copies the project to user specified path and set it's name. For more information follow the [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
+Se ha desarrollado un prototipo para dispensar nutrientes (*N, P, K*) en un tanque anexado a un huerto hidropónico.  
+Se medirá, mediante sensores, la electroconductividad y la temperatura del agua (*ds18b20*).  
+Cuando la cantidad de nutrientes sea la deseada el tanque se vaciará en el circuito principal del huerto al que pertenezca.
 
+## Conexión ThingsBoard
 
+Se realiza mediante el protocolo **MQTT**.
+La *ESP-32* mandará los datos de las mediciones, de manera periódica, a la plataforma IoT *ThingsBoard*.
+Allí los datos podrán ser consultados por el usuario mediante un panel (dashboard).
 
-## How to use example
-We encourage the users to use the example as a template for the new projects.
-A recommended way is to follow the instructions on a [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project).
+## Conexión Telegram
 
-## Example folder contents
+Se realiza mediante el protocolo **HTTP**, tanto desde la *ESP-32* como desde *ThingsBoard*. 
+A través de un bot de *Telegram* se recibirán alertas y datos, que podrán ser consultados por el usuario.  
+También se podrá interactuar con el sistema: pidiendo datos, requiriendo la dispensión de los nutrientes al medio o vaciando el tanque.
 
-The project **sample_project** contains one source file in C language [main.c](main/main.c). The file is located in folder [main](main).
+## Configuraciones
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt`
-files that provide set of directives and instructions describing the project's source files and targets
-(executable, library, or both). 
+### Credentials.h
 
-Below is short explanation of remaining files in the project folder.
-
-```
-├── CMakeLists.txt
-├── main
-│   ├── CMakeLists.txt
-│   └── main.c
-└── README.md                  This is the file you are currently reading
-```
-Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
-They are not used or needed when building with CMake and idf.py.
+Este fichero deberá ser editado por el usuario final; indicando:
+- Los datos de su conexión WiFi.
+- Credenciales de ThingsBoard.
+- Credenciales de su bot de Telegram.

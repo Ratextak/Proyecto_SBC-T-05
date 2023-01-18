@@ -9,7 +9,7 @@
 #define WIFI_PASSWORD   "SBCwifi$"
 
 // Credenciales de ThingsBoard.
-#define THINGSBOARD_TOKEN   "Cx9cvuphrFV6K37zaCox"
+#define THINGSBOARD_TOKEN   "YYrBxdD2cfcKrVWhNj9x"
 #define THINGSBOARD_SERVER  "mqtt://demo.thingsboard.io"
 
 // Credenciales de Telegram y el bot.

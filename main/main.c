@@ -99,7 +99,7 @@ void principal(void) {
     enum estado1 modo_ant = RECIBIR;  // Modo previo del sistema.
     enum estado1 modo_aux = modo;
 
-    while (1) {
+    /*while (1) {
         switch (modo) {
             case MEDIR:  // Recabar datos de todos los sensores.
                 medir_temperatura();
@@ -148,7 +148,7 @@ void principal(void) {
         modo_aux = modo;
 
         vTaskDelay(100);
-    }
+    }*/
 }
 
 void app_main(void) {
@@ -166,9 +166,18 @@ void app_main(void) {
 
     ds18b20_init(TEMP_SENSOR_PIN);  // Iniciamos la sonda de temperatura.
     iniciar_mqtt();  // Iniciamos la conexión MQTT.
-    iniciar_http();  // Iniciamos la conexión HTTP.
+    //iniciar_http();  // Iniciamos la conexión HTTP.
     
     // Iniciamos las tareas.
-    xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
-    xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 512, NULL, 8, NULL);
+    //xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
+    //xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 512, NULL, 8, NULL);
+
+    medir_nivel_tanque();
+    medir_nivel_tanque();
+    medir_electroconductividad();
+    vTaskDelay(10000);
+    while(1){
+        mqtt_mandar_datos(tempValor, nivelValor, ecValor);
+        vTaskDelay(1000);
+    }
 }
