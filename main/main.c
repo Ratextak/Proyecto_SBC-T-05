@@ -99,7 +99,7 @@ void principal(void) {
     enum estado1 modo_ant = RECIBIR;  // Modo previo del sistema.
     enum estado1 modo_aux = modo;
 
-    /*while (1) {
+    while (1) {
         switch (modo) {
             case MEDIR:  // Recabar datos de todos los sensores.
                 medir_temperatura();
@@ -148,7 +148,7 @@ void principal(void) {
         modo_aux = modo;
 
         vTaskDelay(100);
-    }*/
+    }
 }
 
 void app_main(void) {
@@ -172,11 +172,14 @@ void app_main(void) {
     //xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
     //xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 512, NULL, 8, NULL);
 
-    medir_nivel_tanque();
+    medir_temperatura();
     medir_nivel_tanque();
     medir_electroconductividad();
     vTaskDelay(10000);
     while(1){
+        medir_temperatura();
+        medir_nivel_tanque();
+        medir_electroconductividad();
         mqtt_mandar_datos(tempValor, nivelValor, ecValor);
         vTaskDelay(1000);
     }
