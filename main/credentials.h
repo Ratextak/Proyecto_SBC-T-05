@@ -15,6 +15,7 @@
 // Credenciales de Telegram y el bot.
 #define TELEGRAM_SERVER "https://api.telegram.org"
 #define BOT_TOKEN       "5885102192:AAGu2_2Dv7RexPQr33EMPs0QVtpbFunBqZw"
+#define BOT_CHAT_ID     -843736526
 #define BOT_URL         TELEGRAM_SERVER "/bot" BOT_TOKEN   // A falta del método.
 
 #endif

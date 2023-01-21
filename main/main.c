@@ -37,8 +37,6 @@ enum estado {CERRADA , ABIERTA};  // Estado para las bombas y la válvula.
 enum estado valvula = CERRADA;  // Empiezan cerradas.
 enum estado bombaN = CERRADA, bombaP = CERRADA, bombaK = CERRADA;
 
-
-
 enum estado1 {MEDIR, DISPENSAR, VACIAR, TRANSMITIR, RECIBIR};
 enum estado1 modo = MEDIR;  // Cotrolará el modo en el que trabaja el sistema.
 
@@ -172,11 +170,9 @@ void app_main(void) {
     //xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
     //xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 512, NULL, 8, NULL);
 
-    medir_temperatura();
-    medir_nivel_tanque();
-    medir_electroconductividad();
-    vTaskDelay(10000);
-    while(1){
+    mqtt_mandar_datos1();
+
+    while(1){     
         medir_temperatura();
         medir_nivel_tanque();
         medir_electroconductividad();
