@@ -102,23 +102,13 @@ static void mqtt_app_start(void) {
     esp_mqtt_client_start(cliente);
 }
 
-void mqtt_mandar_datos1(void) {
-    cJSON *root = cJSON_CreateObject();
-    cJSON_AddNumberToObject(root, "Bot_chat_id", BOT_CHAT_ID);
-    cJSON_AddStringToObject(root, "Bot_url", BOT_URL);
-    
-    char *post_data = cJSON_PrintUnformatted(root);
-    esp_mqtt_client_publish(cliente, "v1/devices/me/telemetry", post_data, 0, 1, 0);
-    cJSON_Delete(root);
-    // Free is intentional, it's client responsibility to free the result of cJSON_Print.
-    free(post_data);
-}
-
 void mqtt_mandar_datos(float temperatura, bool nivAgua, float ec) {
     cJSON *root = cJSON_CreateObject();
     cJSON_AddNumberToObject(root, "Temperatura", temperatura);
     cJSON_AddNumberToObject(root, "Nivel_agua", nivAgua);
     cJSON_AddNumberToObject(root, "Electroconductividad", ec);
+    cJSON_AddNumberToObject(root, "Bot_chat_id", BOT_CHAT_ID);
+    cJSON_AddStringToObject(root, "Bot_url", BOT_URL);
     
     char *post_data = cJSON_PrintUnformatted(root);
     esp_mqtt_client_publish(cliente, "v1/devices/me/telemetry", post_data, 0, 1, 0);

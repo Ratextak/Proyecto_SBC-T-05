@@ -166,16 +166,17 @@ void app_main(void) {
     iniciar_mqtt();  // Iniciamos la conexión MQTT.
     //iniciar_http();  // Iniciamos la conexión HTTP.
     
+    //mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard.
+
     // Iniciamos las tareas.
     //xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
     //xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 512, NULL, 8, NULL);
-
-    mqtt_mandar_datos1();
 
     while(1){     
         medir_temperatura();
         medir_nivel_tanque();
         medir_electroconductividad();
+        nivelValor = 0;
         mqtt_mandar_datos(tempValor, nivelValor, ecValor);
         vTaskDelay(1000);
     }
