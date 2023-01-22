@@ -37,8 +37,6 @@ enum estado {CERRADA , ABIERTA};  // Estado para las bombas y la válvula.
 enum estado valvula = CERRADA;  // Empiezan cerradas.
 enum estado bombaN = CERRADA, bombaP = CERRADA, bombaK = CERRADA;
 
-
-
 enum estado1 {MEDIR, DISPENSAR, VACIAR, TRANSMITIR, RECIBIR};
 enum estado1 modo = MEDIR;  // Cotrolará el modo en el que trabaja el sistema.
 
@@ -168,18 +166,17 @@ void app_main(void) {
     iniciar_mqtt();  // Iniciamos la conexión MQTT.
     //iniciar_http();  // Iniciamos la conexión HTTP.
     
+    //mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard.
+
     // Iniciamos las tareas.
     //xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
     //xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 512, NULL, 8, NULL);
 
-    medir_temperatura();
-    medir_nivel_tanque();
-    medir_electroconductividad();
-    vTaskDelay(10000);
-    while(1){
+    while(1){     
         medir_temperatura();
         medir_nivel_tanque();
         medir_electroconductividad();
+        nivelValor = 0;
         mqtt_mandar_datos(tempValor, nivelValor, ecValor);
         vTaskDelay(1000);
     }

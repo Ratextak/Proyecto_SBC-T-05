@@ -1,7 +1,7 @@
 # Huerto Hidropónico
 
 Proyecto para la asignatura de Sistemas Basados en Computador (SBC).  
-Grupo: SBC-T-05.  
+Grupo: SBC22-T-05.  
 
 Se ha desarrollado un prototipo para dispensar nutrientes (*N, P, K*) en un tanque anexado a un huerto hidropónico.  
 Se medirá, mediante sensores, la electroconductividad y la temperatura del agua (*ds18b20*).  
