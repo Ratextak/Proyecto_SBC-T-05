@@ -166,7 +166,7 @@ void app_main(void) {
     iniciar_mqtt();  // Iniciamos la conexión MQTT.
     //iniciar_http();  // Iniciamos la conexión HTTP.
     
-    //mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard.
+    mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard como atributos del servidor.
 
     // Iniciamos las tareas.
     //xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
