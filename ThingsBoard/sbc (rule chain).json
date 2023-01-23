@@ -1,0 +1,656 @@
+{
+  "ruleChain": {
+    "additionalInfo": {
+      "description": ""
+    },
+    "name": "SBC",
+    "type": "CORE",
+    "firstRuleNodeId": null,
+    "root": false,
+    "debugMode": false,
+    "configuration": null,
+    "externalId": null
+  },
+  "metadata": {
+    "firstNodeIndex": 21,
+    "nodes": [
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 355,
+          "layoutY": 66
+        },
+        "type": "org.thingsboard.rule.engine.filter.TbJsFilterNode",
+        "name": "Warning temperatura",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "TBEL",
+          "jsScript": "",
+          "tbelScript": "return msg.Temperatura < 20.0 || msg.Temperatura > 25.0;"
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 601,
+          "layoutY": 116
+        },
+        "type": "org.thingsboard.rule.engine.filter.TbJsFilterNode",
+        "name": "Temperatura baja",
+        "debugMode": true,
+        "configuration": {
+          "scriptLang": "TBEL",
+          "jsScript": "",
+          "tbelScript": "return msg.Temperatura < 20.0;"
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 902,
+          "layoutY": 217
+        },
+        "type": "org.thingsboard.rule.engine.action.TbCreateAlarmNode",
+        "name": "Danger temperatura",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "TBEL",
+          "alarmDetailsBuildJs": "",
+          "alarmDetailsBuildTbel": "var details = {};\ndetails.Temperatura = msg.Temperatura;\n\nif (metadata.prevAlarmDetails != null) {\n    var prevDetails = JSON.parse(metadata.prevAlarmDetails);\n    details.cuenta = prevDetails.cuenta + 1;\n} \nelse\n    details.cuenta = 1;\n\nreturn details;",
+          "useMessageAlarmData": false,
+          "overwriteAlarmDetails": false,
+          "alarmType": "Alarma temperatura",
+          "severity": "MAJOR",
+          "propagate": true,
+          "relationTypes": [],
+          "propagateToOwner": false,
+          "propagateToTenant": false,
+          "dynamicSeverity": false
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 901,
+          "layoutY": 314
+        },
+        "type": "org.thingsboard.rule.engine.action.TbCreateAlarmNode",
+        "name": "Warning temperatura",
+        "debugMode": true,
+        "configuration": {
+          "scriptLang": "TBEL",
+          "alarmDetailsBuildJs": "",
+          "alarmDetailsBuildTbel": "var details = {};\ndetails.Temperatura = msg.Temperatura;\n\nif (metadata.prevAlarmDetails != null) {\n    var prevDetails = JSON.parse(metadata.prevAlarmDetails);\n    details.cuenta = prevDetails.cuenta + 1;\n} \nelse\n    details.cuenta = 1;\n\nreturn details;",
+          "useMessageAlarmData": false,
+          "overwriteAlarmDetails": false,
+          "alarmType": "Alarma temperatura",
+          "severity": "MINOR",
+          "propagate": true,
+          "relationTypes": [],
+          "propagateToOwner": false,
+          "propagateToTenant": false,
+          "dynamicSeverity": false
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 1154,
+          "layoutY": 264
+        },
+        "type": "org.thingsboard.rule.engine.transform.TbTransformMsgNode",
+        "name": "New Telegram MSG",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "JS",
+          "jsScript": "msg.text = metadata.deviceName + \": La temperatura es muy baja -> \" + Math.round(msg.Temperatura*100)/100 + \" ºC\";\nmsg.chat_id = metadata.ss_Bot_chat_id;\nreturn {msg: msg, metadata: metadata, msgType: msgType};",
+          "tbelScript": ""
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 378,
+          "layoutY": 191
+        },
+        "type": "org.thingsboard.rule.engine.action.TbClearAlarmNode",
+        "name": "Clear alarmas temperatura",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "JS",
+          "alarmDetailsBuildJs": "var details = {};\nif (metadata.prevAlarmDetails) {\n    details = JSON.parse(metadata.prevAlarmDetails);\n    //remove prevAlarmDetails from metadata\n    delete metadata.prevAlarmDetails;\n    //now metadata is the same as it comes IN this rule node\n}\n\nreturn details;",
+          "alarmDetailsBuildTbel": "var details = {};\nif (metadata.prevAlarmDetails != null) {\n    details = JSON.parse(metadata.prevAlarmDetails);\n    //remove prevAlarmDetails from metadata\n    metadata.remove('prevAlarmDetails');\n    //now metadata is the same as it comes IN this rule node\n}\n\n\nreturn details;",
+          "alarmType": "Alarma temperatura"
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 430,
+          "layoutY": 455
+        },
+        "type": "org.thingsboard.rule.engine.filter.TbJsFilterNode",
+        "name": "Danger nivel del agua",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "TBEL",
+          "jsScript": "",
+          "tbelScript": "return msg.Nivel_agua == 0;"
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 680,
+          "layoutY": 558
+        },
+        "type": "org.thingsboard.rule.engine.action.TbClearAlarmNode",
+        "name": "Clear alarmas nivel agua",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "JS",
+          "alarmDetailsBuildJs": "var details = {};\nif (metadata.prevAlarmDetails) {\n    details = JSON.parse(metadata.prevAlarmDetails);\n    //remove prevAlarmDetails from metadata\n    delete metadata.prevAlarmDetails;\n    //now metadata is the same as it comes IN this rule node\n}\n\n\nreturn details;",
+          "alarmDetailsBuildTbel": "var details = {};\nif (metadata.prevAlarmDetails != null) {\n    details = JSON.parse(metadata.prevAlarmDetails);\n    //remove prevAlarmDetails from metadata\n    metadata.remove('prevAlarmDetails');\n    //now metadata is the same as it comes IN this rule node\n}\n\n\nreturn details;",
+          "alarmType": "Alarma nivel agua"
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 1402,
+          "layoutY": 228
+        },
+        "type": "org.thingsboard.rule.engine.rest.TbRestApiCallNode",
+        "name": "REST API telegram call",
+        "debugMode": false,
+        "configuration": {
+          "restEndpointUrlPattern": "${ss_Bot_url}/sendMessage",
+          "requestMethod": "POST",
+          "useSimpleClientHttpFactory": false,
+          "ignoreRequestBody": false,
+          "enableProxy": false,
+          "useSystemProxyProperties": false,
+          "proxyScheme": null,
+          "proxyHost": null,
+          "proxyPort": 0,
+          "proxyUser": null,
+          "proxyPassword": null,
+          "readTimeoutMs": 0,
+          "maxParallelRequestsCount": 0,
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "useRedisQueueForMsgPersistence": false,
+          "trimQueue": false,
+          "maxQueueSize": 0,
+          "credentials": {
+            "type": "anonymous"
+          }
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 682,
+          "layoutY": 453
+        },
+        "type": "org.thingsboard.rule.engine.action.TbCreateAlarmNode",
+        "name": "Danger nivel del agua",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "TBEL",
+          "alarmDetailsBuildJs": "",
+          "alarmDetailsBuildTbel": "var details = {};\ndetails.Nivel_agua = msg.Nivel_agua;\n\nif (metadata.prevAlarmDetails != null) {\n    var prevDetails = JSON.parse(metadata.prevAlarmDetails);\n    details.cuenta = prevDetails.cuenta + 1;\n} \nelse\n    details.cuenta = 1;\n\nreturn details;",
+          "useMessageAlarmData": false,
+          "overwriteAlarmDetails": false,
+          "alarmType": "Alarma nivel agua",
+          "severity": "CRITICAL",
+          "propagate": false,
+          "relationTypes": [],
+          "propagateToOwner": false,
+          "propagateToTenant": false,
+          "dynamicSeverity": false
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 942,
+          "layoutY": 506
+        },
+        "type": "org.thingsboard.rule.engine.transform.TbTransformMsgNode",
+        "name": "New Telegram MSG",
+        "debugMode": true,
+        "configuration": {
+          "scriptLang": "JS",
+          "jsScript": "msg.text = metadata.deviceName + \": El tanque está vacío.\";\nmsg.chat_id = metadata.ss_Bot_chat_id;\nreturn {msg: msg, metadata: metadata, msgType: msgType};",
+          "tbelScript": ""
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 1216,
+          "layoutY": 508
+        },
+        "type": "org.thingsboard.rule.engine.rest.TbRestApiCallNode",
+        "name": "REST API telegram call",
+        "debugMode": true,
+        "configuration": {
+          "restEndpointUrlPattern": "${ss_Bot_url}/sendMessage",
+          "requestMethod": "POST",
+          "useSimpleClientHttpFactory": false,
+          "ignoreRequestBody": false,
+          "enableProxy": false,
+          "useSystemProxyProperties": false,
+          "proxyScheme": null,
+          "proxyHost": null,
+          "proxyPort": 0,
+          "proxyUser": null,
+          "proxyPassword": null,
+          "readTimeoutMs": 0,
+          "maxParallelRequestsCount": 0,
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "useRedisQueueForMsgPersistence": false,
+          "trimQueue": false,
+          "maxQueueSize": 0,
+          "credentials": {
+            "type": "anonymous"
+          }
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 124,
+          "layoutY": 452
+        },
+        "type": "org.thingsboard.rule.engine.telemetry.TbMsgTimeseriesNode",
+        "name": "Guardar timeseries",
+        "debugMode": false,
+        "configuration": {
+          "defaultTTL": 0,
+          "skipLatestPersistence": false,
+          "useServerTs": false
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 1155,
+          "layoutY": 363
+        },
+        "type": "org.thingsboard.rule.engine.transform.TbTransformMsgNode",
+        "name": "New Telegram MSG",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "JS",
+          "jsScript": "msg.text = metadata.deviceName + \": La temperatura es baja -> \" + Math.round(msg.Temperatura*100)/100 + \" ºC\";\nmsg.chat_id = metadata.ss_Bot_chat_id;\nreturn {msg: msg, metadata: metadata, msgType: msgType};",
+          "tbelScript": ""
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 651,
+          "layoutY": 15
+        },
+        "type": "org.thingsboard.rule.engine.filter.TbJsFilterNode",
+        "name": "Danger temperatura alta",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "TBEL",
+          "jsScript": "",
+          "tbelScript": "return msg.Temperatura > 27.0;"
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 904,
+          "layoutY": 15
+        },
+        "type": "org.thingsboard.rule.engine.action.TbCreateAlarmNode",
+        "name": "Danger temperatura",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "TBEL",
+          "alarmDetailsBuildJs": "",
+          "alarmDetailsBuildTbel": "var details = {};\ndetails.Temperatura = msg.Temperatura;\n\nif (metadata.prevAlarmDetails != null) {\n    var prevDetails = JSON.parse(metadata.prevAlarmDetails);\n    details.cuenta = prevDetails.cuenta + 1;\n} \nelse\n    details.cuenta = 1;\n\nreturn details;",
+          "useMessageAlarmData": false,
+          "overwriteAlarmDetails": false,
+          "alarmType": "Alarma temperatura",
+          "severity": "MAJOR",
+          "propagate": true,
+          "relationTypes": [],
+          "propagateToOwner": false,
+          "propagateToTenant": false,
+          "dynamicSeverity": false
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 904,
+          "layoutY": 114
+        },
+        "type": "org.thingsboard.rule.engine.action.TbCreateAlarmNode",
+        "name": "Warning temperatura",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "TBEL",
+          "alarmDetailsBuildJs": "",
+          "alarmDetailsBuildTbel": "var details = {};\ndetails.Temperatura = msg.Temperatura;\n\nif (metadata.prevAlarmDetails != null) {\n    var prevDetails = JSON.parse(metadata.prevAlarmDetails);\n    details.cuenta = prevDetails.cuenta + 1;\n} \nelse\n    details.cuenta = 1;\n\nreturn details;",
+          "useMessageAlarmData": false,
+          "overwriteAlarmDetails": false,
+          "alarmType": "Alarma temperatura",
+          "severity": "MINOR",
+          "propagate": true,
+          "relationTypes": [],
+          "propagateToOwner": false,
+          "propagateToTenant": false,
+          "dynamicSeverity": false
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 1153,
+          "layoutY": 66
+        },
+        "type": "org.thingsboard.rule.engine.transform.TbTransformMsgNode",
+        "name": "New Telegram MSG",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "JS",
+          "jsScript": "msg.text = metadata.deviceName + \": La temperatura es muy alta -> \" + Math.round(msg.Temperatura*100)/100 + \" ºC\";\nmsg.chat_id = metadata.ss_Bot_chat_id;\nreturn {msg: msg, metadata: metadata, msgType: msgType};",
+          "tbelScript": ""
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 653,
+          "layoutY": 215
+        },
+        "type": "org.thingsboard.rule.engine.filter.TbJsFilterNode",
+        "name": "Danger temperatura baja",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "TBEL",
+          "jsScript": "",
+          "tbelScript": "return msg.Temperatura < 18.0;"
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 1153,
+          "layoutY": 167
+        },
+        "type": "org.thingsboard.rule.engine.transform.TbTransformMsgNode",
+        "name": "New Telegram MSG",
+        "debugMode": false,
+        "configuration": {
+          "scriptLang": "JS",
+          "jsScript": "msg.text = metadata.deviceName + \": La temperatura es alta -> \" + Math.round(msg.Temperatura*100)/100 + \" ºC\";\nmsg.chat_id = metadata.ss_Bot_chat_id;\nreturn {msg: msg, metadata: metadata, msgType: msgType};",
+          "tbelScript": ""
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 80,
+          "layoutY": 354
+        },
+        "type": "org.thingsboard.rule.engine.metadata.TbGetAttributesNode",
+        "name": "Atributos bot TG a metadata",
+        "debugMode": true,
+        "configuration": {
+          "tellFailureIfAbsent": true,
+          "fetchToData": false,
+          "clientAttributeNames": [],
+          "sharedAttributeNames": [],
+          "serverAttributeNames": [
+            "Bot_chat_id",
+            "Bot_url"
+          ],
+          "latestTsKeyNames": [],
+          "getLatestValueWithTs": false
+        },
+        "externalId": null
+      },
+      {
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 55,
+          "layoutY": 252
+        },
+        "type": "org.thingsboard.rule.engine.telemetry.TbMsgAttributesNode",
+        "name": "Guardar atributos",
+        "debugMode": true,
+        "configuration": {
+          "scope": "SERVER_SCOPE",
+          "notifyDevice": false,
+          "sendAttributesUpdatedNotification": false
+        },
+        "externalId": null
+      }
+    ],
+    "connections": [
+      {
+        "fromIndex": 0,
+        "toIndex": 1,
+        "type": "True"
+      },
+      {
+        "fromIndex": 0,
+        "toIndex": 5,
+        "type": "Failure"
+      },
+      {
+        "fromIndex": 0,
+        "toIndex": 5,
+        "type": "False"
+      },
+      {
+        "fromIndex": 1,
+        "toIndex": 14,
+        "type": "False"
+      },
+      {
+        "fromIndex": 1,
+        "toIndex": 18,
+        "type": "True"
+      },
+      {
+        "fromIndex": 2,
+        "toIndex": 4,
+        "type": "Created"
+      },
+      {
+        "fromIndex": 2,
+        "toIndex": 4,
+        "type": "Failure"
+      },
+      {
+        "fromIndex": 2,
+        "toIndex": 4,
+        "type": "Updated"
+      },
+      {
+        "fromIndex": 3,
+        "toIndex": 13,
+        "type": "Created"
+      },
+      {
+        "fromIndex": 3,
+        "toIndex": 13,
+        "type": "Failure"
+      },
+      {
+        "fromIndex": 3,
+        "toIndex": 13,
+        "type": "Updated"
+      },
+      {
+        "fromIndex": 4,
+        "toIndex": 8,
+        "type": "Success"
+      },
+      {
+        "fromIndex": 6,
+        "toIndex": 7,
+        "type": "Failure"
+      },
+      {
+        "fromIndex": 6,
+        "toIndex": 7,
+        "type": "False"
+      },
+      {
+        "fromIndex": 6,
+        "toIndex": 9,
+        "type": "True"
+      },
+      {
+        "fromIndex": 9,
+        "toIndex": 10,
+        "type": "Created"
+      },
+      {
+        "fromIndex": 9,
+        "toIndex": 10,
+        "type": "Failure"
+      },
+      {
+        "fromIndex": 9,
+        "toIndex": 10,
+        "type": "Updated"
+      },
+      {
+        "fromIndex": 10,
+        "toIndex": 11,
+        "type": "Success"
+      },
+      {
+        "fromIndex": 12,
+        "toIndex": 0,
+        "type": "Success"
+      },
+      {
+        "fromIndex": 12,
+        "toIndex": 6,
+        "type": "Success"
+      },
+      {
+        "fromIndex": 13,
+        "toIndex": 8,
+        "type": "Success"
+      },
+      {
+        "fromIndex": 14,
+        "toIndex": 15,
+        "type": "True"
+      },
+      {
+        "fromIndex": 14,
+        "toIndex": 16,
+        "type": "False"
+      },
+      {
+        "fromIndex": 15,
+        "toIndex": 17,
+        "type": "Created"
+      },
+      {
+        "fromIndex": 15,
+        "toIndex": 17,
+        "type": "Failure"
+      },
+      {
+        "fromIndex": 15,
+        "toIndex": 17,
+        "type": "Updated"
+      },
+      {
+        "fromIndex": 16,
+        "toIndex": 19,
+        "type": "Created"
+      },
+      {
+        "fromIndex": 16,
+        "toIndex": 19,
+        "type": "Failure"
+      },
+      {
+        "fromIndex": 16,
+        "toIndex": 19,
+        "type": "Updated"
+      },
+      {
+        "fromIndex": 17,
+        "toIndex": 8,
+        "type": "Success"
+      },
+      {
+        "fromIndex": 18,
+        "toIndex": 2,
+        "type": "True"
+      },
+      {
+        "fromIndex": 18,
+        "toIndex": 3,
+        "type": "False"
+      },
+      {
+        "fromIndex": 19,
+        "toIndex": 8,
+        "type": "Success"
+      },
+      {
+        "fromIndex": 20,
+        "toIndex": 12,
+        "type": "Failure"
+      },
+      {
+        "fromIndex": 20,
+        "toIndex": 12,
+        "type": "Success"
+      },
+      {
+        "fromIndex": 21,
+        "toIndex": 20,
+        "type": "Failure"
+      },
+      {
+        "fromIndex": 21,
+        "toIndex": 20,
+        "type": "Success"
+      }
+    ],
+    "ruleChainConnections": null
+  }
+}
