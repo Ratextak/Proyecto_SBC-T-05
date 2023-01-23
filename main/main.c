@@ -96,6 +96,7 @@ void control_Bombas_Valvula(void) {
 void principal(void) {
     enum estado1 modo_ant = RECIBIR;  // Modo previo del sistema.
     enum estado1 modo_aux = modo;
+    int nutrientes = 0;  // Controla el nutriente que se dispensa: 0=nada, 1=N, 2=P, 3=K.
 
     while (1) {
         switch (modo) {
@@ -108,12 +109,26 @@ void principal(void) {
 
             case DISPENSAR:  // Dispensar nutrientes.
                 // ¿Dispensar por pasos?
+                if (nutrientes == 0) {  // Dispensar N.
+
+                }
+                else if (nutrientes == 1) {  // Dispensar P.
+
+                }
+                else if (nutrientes == 2) {  // Dispensar K.
+                    
+                }
+                else {  // Ya se han dispensado todos los nutrientes. 
+                    nutrientes = 0;
+                    modo = TRANSMITIR;
+                }
                 break;
 
             case VACIAR:  // Vaciar tanque.
                 if (tanque == LLENO) {
                     valvula = ABIERTA;
-                    vTaskDelay(1000);
+                    printf("Vaciando el tanque del agua.\n");
+                    vTaskDelay(3000);
                     modo = MEDIR;
                 }
                 else {  // VACIO.
@@ -166,18 +181,26 @@ void app_main(void) {
     iniciar_mqtt();  // Iniciamos la conexión MQTT.
     //iniciar_http();  // Iniciamos la conexión HTTP.
     
-    //mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard.
+    mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard como atributos del servidor.
 
     // Iniciamos las tareas.
-    //xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
-    //xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 512, NULL, 8, NULL);
+    xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
+    xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 512, NULL, 8, NULL);
+
+    float i = 0.5;
+    tempValor = 19.5;
 
     while(1){     
-        medir_temperatura();
+        //medir_temperatura();
         medir_nivel_tanque();
         medir_electroconductividad();
-        nivelValor = 0;
+        //nivelValor = 0;
+        tempValor += i;
         mqtt_mandar_datos(tempValor, nivelValor, ecValor);
-        vTaskDelay(1000);
+        vTaskDelay(1500);
+        if (tempValor > 27.5)
+            i = -0.5;
+        else if (tempValor < 17.5)
+            i = 0.5;
     }
 }
