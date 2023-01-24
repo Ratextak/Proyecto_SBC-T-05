@@ -1,11 +1,11 @@
-/* esp-idf-telegram-bot
- *
+// Para hacer el siguiente script se ha utilizado como base el siguiente:
+/* 
+ * esp-idf-telegram-bot
  * Author: antusystem
  * e-mail: aleantunes95@gmail.com
  * Date: 11-01-2020
  * MIT License
  * As it is described in the readme file
- *
 */
 
 #include <string.h>
@@ -40,11 +40,6 @@ static const char *TAG3 = "Sending sendMessage";
 // WIFI configuration.
 #define ESP_MAXIMUM_RETRY  10
 
-// Telegram configuration.
-//The chat id that will receive the message
-#define chat_ID1 "@GROUP_NAME"
-#define chat_ID2 "123456789"
-
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
 
@@ -55,6 +50,8 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_FAIL_BIT      BIT1
 
 static int s_retry_num = 0;
+
+esp_http_client_handle_t cliente;  // Cliente HTTP.
 
 extern const char telegram_certificate_pem_start[] asm("_binary_telegram_certificate_pem_start");
 extern const char telegram_certificate_pem_end[]   asm("_binary_telegram_certificate_pem_end");
@@ -151,7 +148,6 @@ void wifi_init_sta(void) {
     vEventGroupDelete(s_wifi_event_group);
 }
 
-
 esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     static char *output_buffer;  // Buffer to store response of http request from event handler
     static int output_len;       // Stores number of bytes read
@@ -191,7 +187,6 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
                 }
                 output_len += evt->data_len;
             }
-
             break;
         case HTTP_EVENT_ON_FINISH:
             ESP_LOGD(TAG0, "HTTP_EVENT_ON_FINISH");
@@ -221,81 +216,6 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
-
-/*
- *  http_native_request() demonstrates use of low level APIs to connect to a server,
- *  make a http request and read response. Event handler is not used in this case.
- *  Note: This approach should only be used in case use of low level APIs is required.
- *  The easiest way is to use esp_http_perform()
- */
-static void http_native_request(void) {
-    char output_buffer[MAX_HTTP_OUTPUT_BUFFER] = "";   // Buffer to store response of http request
-    int content_length = 0;
-    esp_http_client_config_t config = {
-        .url = "http://httpbin.org/get",
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-
-    // GET Request
-    esp_http_client_set_method(client, HTTP_METHOD_GET);
-    esp_err_t err = esp_http_client_open(client, 0);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG0, "Failed to open HTTP connection: %s", esp_err_to_name(err));
-    } else {
-        content_length = esp_http_client_fetch_headers(client);
-        if (content_length < 0) {
-            ESP_LOGE(TAG0, "HTTP client fetch headers failed");
-        } else {
-            int data_read = esp_http_client_read_response(client, output_buffer, MAX_HTTP_OUTPUT_BUFFER);
-            if (data_read >= 0) {
-                ESP_LOGI(TAG0, "HTTP GET Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-                //ESP_LOG_BUFFER_HEX(TAG0, output_buffer, strlen(output_buffer));
-                for(int i = 0; i < esp_http_client_get_content_length(client); i++) {
-                    putchar(output_buffer[i]);
-                }
-                putchar('\r');
-                putchar('\n');
-            } else {
-                ESP_LOGE(TAG0, "Failed to read response");
-            }
-        }
-    }
-    esp_http_client_close(client);
-
-    // POST Request
-    const char *post_data = "{\"field1\":\"value1\"}";
-    esp_http_client_set_url(client, "http://httpbin.org/post");
-    esp_http_client_set_method(client, HTTP_METHOD_POST);
-    esp_http_client_set_header(client, "Content-Type", "application/json");
-    err = esp_http_client_open(client, strlen(post_data));
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG0, "Failed to open HTTP connection: %s", esp_err_to_name(err));
-    } else {
-        int wlen = esp_http_client_write(client, post_data, strlen(post_data));
-        if (wlen < 0) {
-            ESP_LOGE(TAG0, "Write failed");
-        }
-        int data_read = esp_http_client_read_response(client, output_buffer, MAX_HTTP_OUTPUT_BUFFER);
-        if (data_read >= 0) {
-            ESP_LOGI(TAG0, "HTTP GET Status = %d, content_length = %d",
-            esp_http_client_get_status_code(client),
-            esp_http_client_get_content_length(client));
-            //ESP_LOG_BUFFER_HEX(TAG0, output_buffer, strlen(output_buffer));
-            for(int i = 0; i < esp_http_client_get_content_length(client); i++) {
-                putchar(output_buffer[i]);
-            }
-            putchar('\r');
-            putchar('\n');
-        } else {
-            ESP_LOGE(TAG0, "Failed to read response");
-        }
-    }
-    esp_http_client_cleanup(client);
-}
-
-
 static void https_telegram_getMe_perform(void) {
 	char buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};   // Buffer to store response of http request
 	char url[512];
@@ -309,180 +229,41 @@ static void https_telegram_getMe_perform(void) {
     };
     
     //ESP_LOGW(TAG0, "Iniciare");
-    esp_http_client_handle_t client = esp_http_client_init(&config);
+    cliente = esp_http_client_init(&config);
 
     // Preparamos y fijamos el url.
     strcat(url, BOT_URL);
     strcat(url, "/getme");
-    esp_http_client_set_url(client, url);
+    esp_http_client_set_url(cliente, url);
     //ESP_LOGW(TAG0, "Selecting the http method");
-    esp_http_client_set_method(client, HTTP_METHOD_GET);
+    esp_http_client_set_method(cliente, HTTP_METHOD_GET);
     //ESP_LOGW(TAG0, "Perform");
-    esp_err_t err = esp_http_client_perform(client);
+    esp_err_t err = esp_http_client_perform(cliente);
 
     //ESP_LOGW(TAG0, "Revisare");
     if (err == ESP_OK) {
         ESP_LOGI(TAG2, "HTTPS Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
+                esp_http_client_get_status_code(cliente),
+                esp_http_client_get_content_length(cliente));
         ESP_LOGW(TAG2, "Desde Perform el output es: %s",buffer);
     } else {
         ESP_LOGE(TAG2, "Error perform http request %s", esp_err_to_name(err));
     }
 
     ESP_LOGW(TAG2, "Cerrar Cliente");
-    esp_http_client_close(client);
+    esp_http_client_close(cliente);
     ESP_LOGW(TAG0, "Limpiare");
-    esp_http_client_cleanup(client);
-}
-
-static void https_telegram_getMe_native_get(void) {
-
-	/*	Partiendo de http_native_request
-	 *  http_native_request() demonstrates use of low level APIs to connect to a server,
-	 *  make a http request and read response. Event handler is not used in this case.
-	 *  Note: This approach should only be used in case use of low level APIs is required.
-	 *  The easiest way is to use esp_http_perform()
-	 */
-
-    char output_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};   // Buffer to store response of http request
-    int content_length = 0;
-    char url[512];
-    
-    esp_http_client_config_t config = {
-        .url = TELEGRAM_SERVER,
-        .transport_type = HTTP_TRANSPORT_OVER_SSL,
-        .event_handler = _http_event_handler,
-        .cert_pem = telegram_certificate_pem_start,
-    };
-    ESP_LOGW(TAG2, "Iniciare 2");
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-
-    // GET Request
-    ESP_LOGW(TAG2, "Method");
-    esp_http_client_set_method(client, HTTP_METHOD_GET);
-    ESP_LOGW(TAG2, "Open");
-
-    // Preparamos y fijamos el url.
-    strcat(url, BOT_URL);
-    strcat(url, "/getme");
-    esp_http_client_set_url(client, url);
-
-    esp_err_t err = esp_http_client_open(client, 0);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG2, "Failed to open HTTP connection: %s", esp_err_to_name(err));
-    } else {
-        ESP_LOGW(TAG2, "Fetch");
-        content_length = esp_http_client_fetch_headers(client);
-        if (content_length < 0) {
-            ESP_LOGE(TAG2, "HTTP client fetch headers failed");
-        } else {
-            ESP_LOGW(TAG2, "Response");
-            int data_read = esp_http_client_read_response(client, output_buffer, MAX_HTTP_OUTPUT_BUFFER);
-            if (data_read >= 0) {
-                ESP_LOGI(TAG0, "HTTP GET Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-                //ESP_LOG_BUFFER_CHAR(TAG2, output_buffer, strlen(output_buffer));
-            //    ESP_LOG_BUFFER_HEX(TAG2, output_buffer, strlen(output_buffer));
-                for(int i = 0; i < esp_http_client_get_content_length(client); i++) {
-                    putchar(output_buffer[i]);
-                }
-                putchar('\r');
-                putchar('\n');
-            } else {
-                ESP_LOGE(TAG2, "Failed to read response");
-            }
-        }
-    }
-    ESP_LOGW(TAG2, "Cerrar Cliente");
-    esp_http_client_close(client);
-    esp_http_client_cleanup(client);
-    ESP_LOGI(TAG2, "Desde perform esp_get_free_heap_size: %d", esp_get_free_heap_size ());
-}
-
-static void https_telegram_sendMessage_native_get(void) {
-
-	/* Format for sending messages
-	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=[CHANNEL_NAME]&text=[MESSAGE_TEXT]
-	For public groups you can use
-	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=@GroupName&text=hello%20world
-	For private groups you have to use the chat id (which also works with public groups)
-	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=-1234567890123&text=hello%20world
-	You can add your chat_id or group name, your api key and use your browser to send those messages
-	The %20 is the hexa for the space
-	*/
-
-    char output_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};   // Buffer to store response of http request
-    int content_length = 0;
-    char url[512];
-    
-    esp_http_client_config_t config = {
-        .url = TELEGRAM_SERVER,
-        .transport_type = HTTP_TRANSPORT_OVER_SSL,
-        .event_handler = _http_event_handler,
-        .cert_pem = telegram_certificate_pem_start,
-    };
-
-    ESP_LOGW(TAG3, "Iniciare");
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    ESP_LOGW(TAG3, "Enviare un mensaje a un chat");
-    ESP_LOGW(TAG3, "Open");
-    
-    // Preparamos y fijamos el url.
-    strcat(url, BOT_URL);
-    strcat(url,"/sendMessage?chat_id=");
-    strcat(url,chat_ID1);
-    strcat(url,"&text=");
-    //Between every word you have to put %20 for the space (maybe there is another way for this)
-    strcat(url,"Text%20to%20send%20to%20the%20chat");
-    esp_http_client_set_url(client, url);
-
-    esp_err_t err = esp_http_client_open(client, 0);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG3, "Failed to open HTTP connection: %s", esp_err_to_name(err));
-    } else {
-        ESP_LOGW(TAG3, "Fetch 2");
-        content_length = esp_http_client_fetch_headers(client);
-        if (content_length < 0) {
-            ESP_LOGE(TAG3, "HTTP client fetch headers failed");
-        } else {
-            ESP_LOGW(TAG3, "Response 2");
-            int data_read = esp_http_client_read_response(client, output_buffer, MAX_HTTP_OUTPUT_BUFFER);
-            if (data_read >= 0) {
-                ESP_LOGI(TAG0, "HTTP GET Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-                //ESP_LOG_BUFFER_CHAR(TAG2, output_buffer, 188);
-                //ESP_LOG_BUFFER_HEX(TAG2, output_buffer, strlen(output_buffer));
-                for(int i = 0; i < esp_http_client_get_content_length(client); i++) {
-                    putchar(output_buffer[i]);
-                }
-                putchar('\r');
-                putchar('\n');
-            } else {
-                ESP_LOGE(TAG3, "Failed to read response");
-            }
-        }
-    }
-    ESP_LOGW(TAG0, "Limpiare");
-    esp_http_client_close(client);
-    esp_http_client_cleanup(client);
-    ESP_LOGI(TAG0, "esp_get_free_heap_size: %d", esp_get_free_heap_size ());
+    esp_http_client_cleanup(cliente);
 }
 
 static void https_telegram_sendMessage_perform_post(void) {
 
-	/* Format for sending messages
-	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=[CHANNEL_NAME]&text=[MESSAGE_TEXT]
-	For public groups you can use
-	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=@GroupName&text=hello%20world
-	For private groups you have to use the chat id (which also works with public groups)
-	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=-1234567890123&text=hello%20world
-	You can add your chat_id or group name, your api key and use your browser to send those messages
-	The %20 is the hexa for the space
-	The format for the json is: {"chat_id":852596694,"text":"Message using post"}
+    /* Formato para mandar mensajes:
+	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=[CHAT_ID]&text=[MESSAGE_TEXT]
+	The %20 is the hexa for the space.
+    The format for the json is: {"chat_id":852596694,"text":"Message using post"}
 	*/
+
     char output_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};   // Buffer to store response of http request
     char url[512];
 
@@ -495,12 +276,12 @@ static void https_telegram_sendMessage_perform_post(void) {
     };
     //POST
     ESP_LOGW(TAG3, "Iniciare");
-    esp_http_client_handle_t client = esp_http_client_init(&config);
+    cliente = esp_http_client_init(&config);
 
     // Preparamos y fijamos el url.
     strcat(url, BOT_URL);
     strcat(url, "/sendMessage");
-    esp_http_client_set_url(client, url);
+    esp_http_client_set_url(cliente, url);
 
 	ESP_LOGW(TAG3, "Enviare POST");
 	/*Here you add the text and the chat id
@@ -509,26 +290,25 @@ static void https_telegram_sendMessage_perform_post(void) {
 	// The example had this, but to add the chat id easierly I decided not to use a pointer
 	//const char *post_data = "{\"chat_id\":852596694,\"text\":\"Envio de post\"}";
 	char post_data[512] = "";
-	sprintf(post_data,"{\"chat_id\":%s,\"text\":\"Here goes the message from post\"}",chat_ID2);
+	sprintf(post_data,"{\"chat_id\":%s,\"text\":\"Here goes the message from post\"}", BOT_CHAT_ID);
     //ESP_LOGW(TAG0, "El json es es: %s",post_data);
-    esp_http_client_set_method(client, HTTP_METHOD_POST);
-    esp_http_client_set_header(client, "Content-Type", "application/json");
-    esp_http_client_set_post_field(client, post_data, strlen(post_data));
+    esp_http_client_set_method(cliente, HTTP_METHOD_POST);
+    esp_http_client_set_header(cliente, "Content-Type", "application/json");
+    esp_http_client_set_post_field(cliente, post_data, strlen(post_data));
 
-    esp_err_t err = esp_http_client_perform(client);
+    esp_err_t err = esp_http_client_perform(cliente);
     if (err == ESP_OK) {
         ESP_LOGI(TAG3, "HTTP POST Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
+                esp_http_client_get_status_code(cliente),
+                esp_http_client_get_content_length(cliente));
         ESP_LOGW(TAG3, "Desde Perform el output es: %s",output_buffer);
 
-    } else {
+    } else
         ESP_LOGE(TAG3, "HTTP POST request failed: %s", esp_err_to_name(err));
-    }
 
     ESP_LOGW(TAG0, "Limpiare");
-    esp_http_client_close(client);
-    esp_http_client_cleanup(client);
+    esp_http_client_close(cliente);
+    esp_http_client_cleanup(cliente);
     ESP_LOGI(TAG3, "esp_get_free_heap_size: %d", esp_get_free_heap_size ());
 }
 
