@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <time.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
@@ -35,6 +36,8 @@ static esp_adc_cal_characteristics_t adc1_chars;
 #define EC_FOSFORO      1.2 + EC_NITROGENO
 #define EC_POTASIO      0.9 + EC_FOSFORO
 
+#define INTERVALO_TRANSMISION   30  // Intervalo (seg) entre cada transmisión a ThingsBoard.
+
 float tempValor = 25.0, ecValor, ecVoltaje;
 bool nivelValor;
 
@@ -50,9 +53,7 @@ enum estadoTanque tanque = VACIO;  // Estado del tanque dónde se dispensarán l
 
 
 void medir_temperatura(void) {
-    //tempValor = ds18b20_get_temp();  // Obtenemos la temperatura del sensor.
-    float tempVoltaje = esp_adc_cal_raw_to_voltage(adc1_get_raw(TEMP_SENSOR_PIN), &adc1_chars);
-    tempValor = ((tempVoltaje-142)/(3002/56)) - 6;
+    tempValor = ds18b20_get_temp();  // Obtenemos la temperatura del sensor.
     printf("Temperatura: %0.1f ºC\n", tempValor);
 }
 
@@ -71,7 +72,7 @@ void medir_electroconductividad(void) {
     ecVoltaje = esp_adc_cal_raw_to_voltage(adc1_get_raw(ELECTRO_SENSOR_PIN), &adc1_chars);  // Voltaje del sensor de electroconductividad.
     ecValor = 1000*ecVoltaje/EC_RES2/EC_REF*EC_VALOR_K*10.0;
     ecValor = ecValor / (1.0+0.0185*(tempValor-25.0));  // Compensación de temperatura.
-    printf("Electroconductividad: %0.1f ms/cm\n", ecValor);
+    printf("Electroconductividad: %f ms/cm\n", ecValor);
 }
 
 // Recabar/actualizar datos de todos los sensores.
@@ -129,7 +130,7 @@ void control_Bombas_Valvula(void) {
             bombaK_ant = bombaK;
         }
         
-        vTaskDelay(40);
+        vTaskDelay(40);  // Cada 400 ms.
     }
 }
 
@@ -137,6 +138,7 @@ void principal(void) {
     enum estadoSist modo_ant = RECIBIR;  // Modo previo del sistema.
     enum estadoSist modo_aux = modo;
     int nutrientes = 1;  // Controla el nutriente que se dispensa: 1=N, 2=P, 3=K.
+    clock_t ultimaTransmision = clock();  // Controlará cuando se realizó la última transmisión a ThingsBoard.
 
     while (1) {
         switch (modo) {
@@ -186,7 +188,7 @@ void principal(void) {
                     valvula = ABIERTA;
                     printf("---> Vaciando el tanque del agua.\n");
                     vTaskDelay(3000);
-                }
+                } 
                 else {  // VACIO.
                     valvula = CERRADA;
                     modo = TRANSMITIR;
@@ -195,15 +197,20 @@ void principal(void) {
 
             case TRANSMITIR:  // Transmitir datos a ThingsBoard.
                 printf("\nTRANSMITIR_____________________________________________________________________\n");
-                if (modo_ant == RECIBIR)
-                    medir_ambiente();
-                mqtt_mandar_datos(tempValor, nivelValor, ecValor);
+                // Si ha transcurrido el tiempo establecido entre transmisiones.
+                if ((clock() - ultimaTransmision)/CLOCKS_PER_SEC > INTERVALO_TRANSMISION) { 
+                    if (modo_ant == RECIBIR)
+                        medir_ambiente();
+                    ultimaTransmision = clock();
+                    mqtt_mandar_datos(tempValor, nivelValor, ecValor);
+                }
                 modo = RECIBIR;       
                 break;
             
             case RECIBIR:  // Recibir datos de Telegram.
                 // Dependiendo del lo que reciba irá a DISPENSAR, VACIAR o TRANSMITIR.
                 printf("\nRECIBIR_____________________________________________________________________\n");
+                modo = TRANSMITIR;
                 break;
             
             default:
@@ -212,7 +219,7 @@ void principal(void) {
         modo_ant = modo_aux;
         modo_aux = modo;
 
-        vTaskDelay(100);
+        vTaskDelay(100);  // Cada 1 seg.
     }
 }
 
@@ -230,17 +237,13 @@ void app_main(void) {
     ESP_ERROR_CHECK(adc1_config_channel_atten(ELECTRO_SENSOR_PIN, ADC_ATTEN_DB_11));
 
     ds18b20_init(TEMP_SENSOR_PIN);  // Iniciamos la sonda de temperatura.
-    iniciar_mqtt();  // Iniciamos la conexión MQTT.
-    //iniciar_http();  // Iniciamos la conexión HTTP.
     
+    iniciar_mqtt();  // Iniciamos la conexión MQTT.
     mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard como atributos del servidor.
+    
+    //iniciar_http();  // Iniciamos la conexión HTTP.
 
     // Iniciamos las tareas.
     xTaskCreate(principal, "Modos sistema", 2048, NULL, 9, NULL);
     xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 1024, NULL, 8, NULL);
-
-    while (1) {
-        medir_ambiente();
-        vTaskDelay(1000);
-    }
 }
