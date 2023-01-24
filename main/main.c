@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <time.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
@@ -30,18 +31,25 @@ static esp_adc_cal_characteristics_t adc1_chars;
 #define EC_RES2     (7500.0/0.66)
 #define EC_REF      20.0
 
-float tempValor = 25.0, ecValor, ecVoltaje, ecAux;
+// Valores de electroconductividad ideales del agua para cada nutriente (en orden de dispensión).
+#define EC_NITROGENO    2.15
+#define EC_FOSFORO      1.2 + EC_NITROGENO
+#define EC_POTASIO      0.9 + EC_FOSFORO
+
+#define INTERVALO_TRANSMISION   30  // Intervalo (seg) entre cada transmisión a ThingsBoard.
+
+float tempValor = 25.0, ecValor, ecVoltaje;
 bool nivelValor;
 
-enum estado {CERRADA , ABIERTA};  // Estado para las bombas y la válvula.
-enum estado valvula = CERRADA;  // Empiezan cerradas.
-enum estado bombaN = CERRADA, bombaP = CERRADA, bombaK = CERRADA;
+enum estadoBombValv {CERRADA , ABIERTA};  // Estado para las bombas y la válvula.
+enum estadoBombValv valvula = CERRADA;  // Empiezan cerradas.
+enum estadoBombValv bombaN = CERRADA, bombaP = CERRADA, bombaK = CERRADA;
 
-enum estado1 {MEDIR, DISPENSAR, VACIAR, TRANSMITIR, RECIBIR};
-enum estado1 modo = MEDIR;  // Cotrolará el modo en el que trabaja el sistema.
+enum estadoSist {DISPENSAR, VACIAR, TRANSMITIR, RECIBIR};
+enum estadoSist modo = TRANSMITIR;  // Cotrolará el modo en el que trabaja el sistema.
 
-enum estado2 {VACIO, LLENO};
-enum estado2 tanque = VACIO;  // Estado del tanque dónde se dispensarán los nutrientes.
+enum estadoTanque {VACIO, LLENO};
+enum estadoTanque tanque = VACIO;  // Estado del tanque dónde se dispensarán los nutrientes.
 
 
 void medir_temperatura(void) {
@@ -62,75 +70,125 @@ void medir_nivel_tanque(void) {
 
 void medir_electroconductividad(void) {
     ecVoltaje = esp_adc_cal_raw_to_voltage(adc1_get_raw(ELECTRO_SENSOR_PIN), &adc1_chars);  // Voltaje del sensor de electroconductividad.
-    ecAux = 1000*ecVoltaje/EC_RES2/EC_REF*EC_VALOR_K*10.0;
-    ecValor = ecAux / (1.0+0.0185*(tempValor-25.0));  // Compensación de temperatura.
-    printf("Electroconductividad: %0.1f ms/cm\n", ecValor);
+    ecValor = 1000*ecVoltaje/EC_RES2/EC_REF*EC_VALOR_K*10.0;
+    ecValor = ecValor / (1.0+0.0185*(tempValor-25.0));  // Compensación de temperatura.
+    printf("Electroconductividad: %f ms/cm\n", ecValor);
+}
+
+// Recabar/actualizar datos de todos los sensores.
+void medir_ambiente(void) {
+    medir_temperatura();
+    medir_nivel_tanque();
+    medir_electroconductividad();
 }
 
 void control_Bombas_Valvula(void) {
+    enum estadoBombValv valvula_ant = ABIERTA;  // Controlan si cambian de estado.
+    enum estadoBombValv bombaN_ant = ABIERTA, bombaP_ant = ABIERTA, bombaK_ant = ABIERTA;
+    
     while (1) {
-        if (valvula == ABIERTA) {
-            gpio_set_level(VALVULA_PIN_1, 1);
-            gpio_set_level(VALVULA_PIN_2, 0);
-        } else {  // CERRADA.
-            gpio_set_level(VALVULA_PIN_1, 0);
-            gpio_set_level(VALVULA_PIN_2, 1);
+        if (valvula != valvula_ant) {
+            if (valvula == ABIERTA) {
+                gpio_set_level(VALVULA_PIN_1, 1);
+                gpio_set_level(VALVULA_PIN_2, 0);
+                printf("### Válvula abierta ###\n");
+            } else {  // CERRADA.
+                gpio_set_level(VALVULA_PIN_1, 0);
+                gpio_set_level(VALVULA_PIN_2, 1);
+                printf("--- Válvula cerrada ---\n");
+            }
+            valvula_ant = valvula;
         }
-        if (bombaN == ABIERTA)
-            gpio_set_level(BOMBA_N_PIN, 1);
-        else  // CERRADA.
-            gpio_set_level(BOMBA_N_PIN, 0);
-        if (bombaP == ABIERTA)
-            gpio_set_level(BOMBA_P_PIN, 1);
-        else  // CERRADA.
-            gpio_set_level(BOMBA_P_PIN, 0);
-        if (bombaK == ABIERTA)
-            gpio_set_level(BOMBA_K_PIN, 1);
-        else  // CERRADA.
-            gpio_set_level(BOMBA_K_PIN, 0);
+        if (bombaN != bombaN_ant) {
+            if (bombaN == ABIERTA) {
+                gpio_set_level(BOMBA_N_PIN, 1);
+                printf("### Bomba N abierta ###\n");
+            } else {  // CERRADA.
+                gpio_set_level(BOMBA_N_PIN, 0);
+                printf("--- Bomba N cerrada ---\n");
+            }
+            bombaN_ant = bombaN;
+        }
+        if (bombaP != bombaP_ant) {
+            if (bombaP == ABIERTA) {
+                gpio_set_level(BOMBA_P_PIN, 1);
+                printf("### Bomba P abierta ###\n");
+            } else {  // CERRADA.
+                gpio_set_level(BOMBA_P_PIN, 0);
+                printf("--- Bomba P cerrada ---\n");
+            }
+            bombaP_ant = bombaP;
+        }
+        if (bombaK != bombaK_ant) {
+            if (bombaK == ABIERTA) {
+                gpio_set_level(BOMBA_K_PIN, 1);
+                printf("### Bomba K abierta ###\n");
+            } else {  // CERRADA.
+                gpio_set_level(BOMBA_K_PIN, 0);
+                printf("--- Bomba K cerrada ---\n");
+            }
+            bombaK_ant = bombaK;
+        }
         
-        vTaskDelay(50);
+        vTaskDelay(40);  // Cada 400 ms.
     }
 }
 
 void principal(void) {
-    enum estado1 modo_ant = RECIBIR;  // Modo previo del sistema.
-    enum estado1 modo_aux = modo;
-    int nutrientes = 0;  // Controla el nutriente que se dispensa: 0=nada, 1=N, 2=P, 3=K.
+    enum estadoSist modo_ant = RECIBIR;  // Modo previo del sistema.
+    enum estadoSist modo_aux = modo;
+    int nutrientes = 1;  // Controla el nutriente que se dispensa: 1=N, 2=P, 3=K.
+    clock_t ultimaTransmision = clock();  // Controlará cuando se realizó la última transmisión a ThingsBoard.
 
     while (1) {
         switch (modo) {
-            case MEDIR:  // Recabar datos de todos los sensores.
-                medir_temperatura();
-                medir_nivel_tanque();
-                medir_electroconductividad();
-                modo = modo_ant;
-                break;
-
             case DISPENSAR:  // Dispensar nutrientes.
-                // ¿Dispensar por pasos?
-                if (nutrientes == 0) {  // Dispensar N.
-
-                }
-                else if (nutrientes == 1) {  // Dispensar P.
-
-                }
-                else if (nutrientes == 2) {  // Dispensar K.
-                    
-                }
-                else {  // Ya se han dispensado todos los nutrientes. 
-                    nutrientes = 0;
+                printf("\nDISPENSAR_____________________________________________________________________\n");
+                medir_ambiente();
+                if (tanque == LLENO) {
+                    if (nutrientes == 1) {  // Dispensar N.
+                        if (ecValor < EC_NITROGENO) {
+                            bombaN = ABIERTA;
+                            printf("---> Dispensando Nitrógeno.\n");
+                            vTaskDelay(200);
+                        } else {
+                            bombaN = CERRADA;
+                            nutrientes = 2;
+                        }
+                    }
+                    else if (nutrientes == 2) {  // Dispensar P.
+                        if (ecValor < EC_FOSFORO) {
+                            bombaP = ABIERTA;
+                            printf("---> Dispensando Fósforo.\n");
+                            vTaskDelay(200);
+                        } else {
+                            bombaP = CERRADA;
+                            nutrientes = 3;
+                        }
+                    }
+                    else {  // Dispensar K.
+                        if (ecValor < EC_POTASIO) {
+                            bombaK = ABIERTA;
+                            printf("---> Dispensando Potasio.\n");
+                            vTaskDelay(200);
+                        } else {
+                            bombaK = CERRADA;
+                            nutrientes = 1;
+                            modo = TRANSMITIR;
+                        }
+                    }
+                } else  // VACIO.
                     modo = TRANSMITIR;
-                }
                 break;
 
             case VACIAR:  // Vaciar tanque.
+                printf("\nVACIAR_____________________________________________________________________\n");
+                medir_ambiente();
                 if (tanque == LLENO) {
                     valvula = ABIERTA;
-                    printf("Vaciando el tanque del agua.\n");
+                    printf("---> Vaciando el tanque del agua.\n");
                     vTaskDelay(3000);
-                    modo = MEDIR;
-                }
+                } 
                 else {  // VACIO.
                     valvula = CERRADA;
                     modo = TRANSMITIR;
@@ -138,20 +196,21 @@ void principal(void) {
                 break;
 
             case TRANSMITIR:  // Transmitir datos a ThingsBoard.
-                if (modo_ant == DISPENSAR) {
+                printf("\nTRANSMITIR_____________________________________________________________________\n");
+                // Si ha transcurrido el tiempo establecido entre transmisiones.
+                if ((clock() - ultimaTransmision)/CLOCKS_PER_SEC > INTERVALO_TRANSMISION) { 
+                    if (modo_ant == RECIBIR)
+                        medir_ambiente();
+                    ultimaTransmision = clock();
                     mqtt_mandar_datos(tempValor, nivelValor, ecValor);
-                    modo = DISPENSAR;
-                } 
-                else if (modo_ant == MEDIR || modo_ant == VACIAR) {
-                    mqtt_mandar_datos(tempValor, nivelValor, ecValor);
-                    modo = RECIBIR;
-                } 
-                else  // RECIBIR.
-                    modo = MEDIR;        
+                }
+                modo = RECIBIR;       
                 break;
             
             case RECIBIR:  // Recibir datos de Telegram.
-                // Dependiendo del lo que reciba irá a DISPENSAR o a TRANSMITIR.
+                // Dependiendo del lo que reciba irá a DISPENSAR, VACIAR o TRANSMITIR.
+                printf("\nRECIBIR_____________________________________________________________________\n");
+                modo = TRANSMITIR;
                 break;
             
             default:
@@ -160,7 +219,7 @@ void principal(void) {
         modo_ant = modo_aux;
         modo_aux = modo;
 
-        vTaskDelay(100);
+        vTaskDelay(100);  // Cada 1 seg.
     }
 }
 
@@ -178,29 +237,13 @@ void app_main(void) {
     ESP_ERROR_CHECK(adc1_config_channel_atten(ELECTRO_SENSOR_PIN, ADC_ATTEN_DB_11));
 
     ds18b20_init(TEMP_SENSOR_PIN);  // Iniciamos la sonda de temperatura.
-    iniciar_mqtt();  // Iniciamos la conexión MQTT.
-    //iniciar_http();  // Iniciamos la conexión HTTP.
     
+    iniciar_mqtt();  // Iniciamos la conexión MQTT.
     mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard como atributos del servidor.
+    
+    //iniciar_http();  // Iniciamos la conexión HTTP.
 
     // Iniciamos las tareas.
-    xTaskCreate(principal, "Modos sistema", 512, NULL, 9, NULL);
-    xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 512, NULL, 8, NULL);
-
-    float i = 0.5;
-    tempValor = 19.5;
-
-    while(1){     
-        //medir_temperatura();
-        medir_nivel_tanque();
-        medir_electroconductividad();
-        //nivelValor = 0;
-        tempValor += i;
-        mqtt_mandar_datos(tempValor, nivelValor, ecValor);
-        vTaskDelay(1500);
-        if (tempValor > 27.5)
-            i = -0.5;
-        else if (tempValor < 17.5)
-            i = 0.5;
-    }
+    xTaskCreate(principal, "Modos sistema", 2048, NULL, 9, NULL);
+    xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 1024, NULL, 8, NULL);
 }
