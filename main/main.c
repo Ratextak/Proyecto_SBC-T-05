@@ -54,7 +54,7 @@ enum estadoTanque tanque = VACIO;  // Estado del tanque dónde se dispensarán l
 
 
 void medir_temperatura(void) {
-    tempValor = ds18b20_get_temp();  // Obtenemos la temperatura del sensor.
+    tempValor = 21.0;//ds18b20_get_temp();  // Obtenemos la temperatura del sensor.
     printf("Temperatura: %0.1f ºC\n", tempValor);
 }
 
@@ -203,7 +203,7 @@ void principal(void) {
                     if (modo_ant == RECIBIR)
                         medir_ambiente();
                     ultimaTransmision = clock();
-                    //mqtt_mandar_datos(tempValor, nivelValor, ecValor);
+                    mqtt_mandar_datos(tempValor, nivelValor, ecValor);
                 }
                 modo = RECIBIR;       
                 break;
@@ -211,6 +211,7 @@ void principal(void) {
             case RECIBIR:  // Recibir datos de Telegram.
                 // Dependiendo del lo que reciba irá a DISPENSAR, VACIAR o TRANSMITIR.
                 printf("\nRECIBIR_____________________________________________________________________\n");
+                https_telegram_getMe();
                 modo = TRANSMITIR;
                 break;
             
@@ -225,9 +226,9 @@ void principal(void) {
 }
 
 void app_main(void) {
-    ESP_LOGI(TAG, "[APP] Iniciando...");
-    ESP_LOGI(TAG, "[APP] Memoria libre: %d bytes", esp_get_free_heap_size());
-    ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
+    ESP_LOGI(SBC, "[APP] Iniciando...");
+    ESP_LOGI(SBC, "[APP] Memoria libre: %d bytes", esp_get_free_heap_size());
+    ESP_LOGI(SBC, "[APP] IDF version: %s", esp_get_idf_version());
 
     // Configuramos los puertos GPIO y el ADC de los dispositivos.
     gpio_set_direction(BOMBA_N_PIN, GPIO_MODE_OUTPUT);
@@ -243,15 +244,12 @@ void app_main(void) {
 
     ds18b20_init(TEMP_SENSOR_PIN);  // Iniciamos la sonda de temperatura.
     
-    //iniciar_mqtt();  // Iniciamos la conexión MQTT.
-    //mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard como atributos del servidor.
+    iniciar_mqtt();  // Iniciamos la conexión MQTT.
+    mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard como atributos del servidor.
     
     iniciar_http();  // Iniciamos la conexión HTTP.
 
     // Iniciamos las tareas.
-    //xTaskCreate(principal, "Modos sistema", 2048, NULL, 9, NULL);
-    //xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 1024, NULL, 8, NULL);
- 
-    https_telegram_sendMessage_perform_post("Prueba 4");
-    https_telegram_sendMessage_perform_post("Prueba 5");
+    xTaskCreate(principal, "Modos sistema", 4096, NULL, 9, NULL);
+    xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 1024, NULL, 8, NULL);
 }

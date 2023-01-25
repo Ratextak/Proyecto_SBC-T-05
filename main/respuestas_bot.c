@@ -2,14 +2,13 @@
 #include <string.h>
 
 
-// %20 es el símbolo hexadecimal para el espacio.
 void respuestas_bot(char pregunta[], char *mensaje, float datos[]) {
     if (strcmp(pregunta, "/datos") == 0)
         sprintf(mensaje, "Temperatura: %0.1f ºC\nElectroconductividad: %f mS/cm\nTanque: %d", datos[0], datos[1], (int) datos[2]);
     else if (strcmp(pregunta, "/vaciar") == 0)
-        strcat(mensaje, "Vaciando el tanque...");
+        sprintf(mensaje, "Vaciando el tanque...");
     else if (strcmp(pregunta, "/dispensar") == 0)
-        strcat(mensaje, "Dispensando nutrientes...");
+        sprintf(mensaje, "Dispensando nutrientes...");
     else {
         strcat(mensaje, "Las opciones disponibles:\n");
         strcat(mensaje, "/datos: Muestra los valores de los sensores.\n");
