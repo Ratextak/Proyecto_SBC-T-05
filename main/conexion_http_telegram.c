@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
@@ -22,14 +23,16 @@
 #include "lwip/sys.h"
 #include "esp_wifi.h"
 #include "esp_http_client.h"
-#include "driver/gpio.h"
-#include "freertos/event_groups.h"
+#include "cJSON.h"
 
 #include "credentials.h"
 
-/*HTTP buffer*/
-#define MAX_HTTP_RECV_BUFFER 1024
-#define MAX_HTTP_OUTPUT_BUFFER 2048
+#define MAX_HTTP_OUTPUT_BUFFER 1024  // Tamaño máx del buffer de respuesta HTTP.
+char buffer_respuesta[MAX_HTTP_OUTPUT_BUFFER] = {0};   // Buffer para guardar la respuesta.
+char url[100];  // Url que se formará para los POST y GET.
+
+esp_http_client_handle_t cliente_http;  // Cliente HTTP.
+esp_err_t mensaje_error;
 
 /* TAGs for the system*/
 static const char *TAG0 = "HTTP_CLIENT Handler";
@@ -51,10 +54,9 @@ static EventGroupHandle_t s_wifi_event_group;
 
 static int s_retry_num = 0;
 
-esp_http_client_handle_t cliente;  // Cliente HTTP.
-
 extern const char telegram_certificate_pem_start[] asm("_binary_telegram_certificate_pem_start");
 extern const char telegram_certificate_pem_end[]   asm("_binary_telegram_certificate_pem_end");
+
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data) {
@@ -216,102 +218,78 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
-static void https_telegram_getMe_perform(void) {
-	char buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};   // Buffer to store response of http request
-	char url[512];
-
+void http_app_start(void){
     esp_http_client_config_t config = {
         .url = TELEGRAM_SERVER,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .event_handler = _http_event_handler,
         .cert_pem = telegram_certificate_pem_start,
-        .user_data = buffer,        // Pass address of local buffer to get response
+        .user_data = buffer_respuesta,
     };
-    
-    //ESP_LOGW(TAG0, "Iniciare");
-    cliente = esp_http_client_init(&config);
 
-    // Preparamos y fijamos el url.
-    strcat(url, BOT_URL);
-    strcat(url, "/getme");
-    esp_http_client_set_url(cliente, url);
-    //ESP_LOGW(TAG0, "Selecting the http method");
-    esp_http_client_set_method(cliente, HTTP_METHOD_GET);
-    //ESP_LOGW(TAG0, "Perform");
-    esp_err_t err = esp_http_client_perform(cliente);
-
-    //ESP_LOGW(TAG0, "Revisare");
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG2, "HTTPS Status = %d, content_length = %d",
-                esp_http_client_get_status_code(cliente),
-                esp_http_client_get_content_length(cliente));
-        ESP_LOGW(TAG2, "Desde Perform el output es: %s",buffer);
-    } else {
-        ESP_LOGE(TAG2, "Error perform http request %s", esp_err_to_name(err));
-    }
-
-    ESP_LOGW(TAG2, "Cerrar Cliente");
-    esp_http_client_close(cliente);
-    ESP_LOGW(TAG0, "Limpiare");
-    esp_http_client_cleanup(cliente);
+    ESP_LOGW(TAG0, "Iniciamos cliente HTTP.");
+    cliente_http = esp_http_client_init(&config);
 }
 
-static void https_telegram_sendMessage_perform_post(void) {
+static void https_telegram_getMe_perform(void) {
+	char url[100];
+
+    // Preparamos y fijamos el url.
+    sprintf(url, "%s/getme", BOT_URL);
+    esp_http_client_set_url(cliente_http, url);
+
+    esp_http_client_set_method(cliente_http, HTTP_METHOD_GET);
+    mensaje_error = esp_http_client_perform(cliente_http);
+
+    if (mensaje_error == ESP_OK) {
+        ESP_LOGI(TAG2, "HTTPS Status = %d, content_length = %d",
+                esp_http_client_get_status_code(cliente_http),
+                esp_http_client_get_content_length(cliente_http));
+        ESP_LOGW(TAG2, "Desde Perform el output es: %s", buffer_respuesta);
+    } else
+        ESP_LOGE(TAG2, "Error perform http request %s", esp_err_to_name(mensaje_error));
+
+    esp_http_client_close(cliente_http);
+    esp_http_client_cleanup(cliente_http);
+}
+
+static void https_telegram_sendMessage_perform_post(char mensaje[]) {
 
     /* Formato para mandar mensajes:
 	https://api.telegram.org/bot[BOT_TOKEN]/sendMessage?chat_id=[CHAT_ID]&text=[MESSAGE_TEXT]
-	The %20 is the hexa for the space.
     The format for the json is: {"chat_id":852596694,"text":"Message using post"}
 	*/
 
-    char output_buffer[MAX_HTTP_OUTPUT_BUFFER] = {0};   // Buffer to store response of http request
-    char url[512];
-
-    esp_http_client_config_t config = {
-        .url = TELEGRAM_SERVER,
-        .transport_type = HTTP_TRANSPORT_OVER_SSL,
-        .event_handler = _http_event_handler,
-        .cert_pem = telegram_certificate_pem_start,
-		.user_data = output_buffer,
-    };
-    //POST
-    ESP_LOGW(TAG3, "Iniciare");
-    cliente = esp_http_client_init(&config);
-
     // Preparamos y fijamos el url.
-    strcat(url, BOT_URL);
-    strcat(url, "/sendMessage");
-    esp_http_client_set_url(cliente, url);
+    sprintf(url, "%s/sendMessage", BOT_URL);
+    esp_http_client_set_url(cliente_http, url);
 
 	ESP_LOGW(TAG3, "Enviare POST");
-	/*Here you add the text and the chat id
-	 * The format for the json for the telegram request is: {"chat_id":123456789,"text":"Here goes the message"}
-	  */
-	// The example had this, but to add the chat id easierly I decided not to use a pointer
-	//const char *post_data = "{\"chat_id\":852596694,\"text\":\"Envio de post\"}";
-	char post_data[512] = "";
-	sprintf(post_data,"{\"chat_id\":%s,\"text\":\"Here goes the message from post\"}", BOT_CHAT_ID);
-    //ESP_LOGW(TAG0, "El json es es: %s",post_data);
-    esp_http_client_set_method(cliente, HTTP_METHOD_POST);
-    esp_http_client_set_header(cliente, "Content-Type", "application/json");
-    esp_http_client_set_post_field(cliente, post_data, strlen(post_data));
 
-    esp_err_t err = esp_http_client_perform(cliente);
-    if (err == ESP_OK) {
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddNumberToObject(root, "chat_id", BOT_CHAT_ID);
+    cJSON_AddStringToObject(root, "text", mensaje);
+    
+    char *post_data = cJSON_PrintUnformatted(root);
+    ESP_LOGW(TAG3, "El json es es: %s", post_data);
+    esp_http_client_set_method(cliente_http, HTTP_METHOD_POST);
+    esp_http_client_set_header(cliente_http, "Content-Type", "application/json");
+    esp_http_client_set_post_field(cliente_http, post_data, strlen(post_data));
+
+    mensaje_error = esp_http_client_perform(cliente_http);
+    if (mensaje_error == ESP_OK) {
         ESP_LOGI(TAG3, "HTTP POST Status = %d, content_length = %d",
-                esp_http_client_get_status_code(cliente),
-                esp_http_client_get_content_length(cliente));
-        ESP_LOGW(TAG3, "Desde Perform el output es: %s",output_buffer);
+                esp_http_client_get_status_code(cliente_http),
+                esp_http_client_get_content_length(cliente_http));
+        ESP_LOGW(TAG3, "Desde Perform el output es: %s", buffer_respuesta);
 
     } else
-        ESP_LOGE(TAG3, "HTTP POST request failed: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG3, "HTTP POST request failed: %s", esp_err_to_name(mensaje_error));
 
-    ESP_LOGW(TAG0, "Limpiare");
-    esp_http_client_close(cliente);
-    esp_http_client_cleanup(cliente);
-    ESP_LOGI(TAG3, "esp_get_free_heap_size: %d", esp_get_free_heap_size ());
+    ESP_LOGI(TAG3, "esp_get_free_heap_size: %d", esp_get_free_heap_size());
+    cJSON_Delete(root);
+    free(post_data);
 }
-
 
 void iniciar_http(void) {
     //Initialize NVS
@@ -324,4 +302,5 @@ void iniciar_http(void) {
 
     ESP_LOGI(TAG1, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
+    http_app_start();
 }
