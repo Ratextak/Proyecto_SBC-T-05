@@ -33,9 +33,9 @@ static esp_adc_cal_characteristics_t adc1_chars;
 #define EC_REF      20.0
 
 // Valores de electroconductividad ideales del agua para cada nutriente (en orden de dispensión).
-#define EC_NITROGENO    2.15
+#define EC_NITROGENO    11.15
 #define EC_FOSFORO      1.2 + EC_NITROGENO
-#define EC_POTASIO      0.9 + EC_FOSFORO
+#define EC_POTASIO      2.9 + EC_FOSFORO
 
 #define INTERVALO_TRANSMISION   30  // Intervalo (seg) entre cada transmisión a ThingsBoard.
 
@@ -136,10 +136,9 @@ void control_Bombas_Valvula(void) {
 }
 
 void principal(void) {
-    enum estadoSist modo_ant = RECIBIR;  // Modo previo del sistema.
-    enum estadoSist modo_aux = modo;
     int nutrientes = 1;  // Controla el nutriente que se dispensa: 1=N, 2=P, 3=K.
     clock_t ultimaTransmision = clock();  // Controlará cuando se realizó la última transmisión a ThingsBoard.
+    char comando[10], respuesta[100];  // Almacena el comando mandado por Telegram y la respuesta.
 
     while (1) {
         switch (modo) {
@@ -151,6 +150,8 @@ void principal(void) {
                         if (ecValor < EC_NITROGENO) {
                             bombaN = ABIERTA;
                             printf("---> Dispensando Nitrógeno.\n");
+                            resp_dispensar(nutrientes, respuesta, ecValor);
+                            https_telegram_sendMessage(respuesta);
                             vTaskDelay(200);
                         } else {
                             bombaN = CERRADA;
@@ -161,6 +162,8 @@ void principal(void) {
                         if (ecValor < EC_FOSFORO) {
                             bombaP = ABIERTA;
                             printf("---> Dispensando Fósforo.\n");
+                            resp_dispensar(nutrientes, respuesta, ecValor);
+                            https_telegram_sendMessage(respuesta);
                             vTaskDelay(200);
                         } else {
                             bombaP = CERRADA;
@@ -171,6 +174,8 @@ void principal(void) {
                         if (ecValor < EC_POTASIO) {
                             bombaK = ABIERTA;
                             printf("---> Dispensando Potasio.\n");
+                            resp_dispensar(nutrientes, respuesta, ecValor);
+                            https_telegram_sendMessage(respuesta);
                             vTaskDelay(200);
                         } else {
                             bombaK = CERRADA;
@@ -200,10 +205,8 @@ void principal(void) {
                 printf("\nTRANSMITIR_____________________________________________________________________\n");
                 // Si ha transcurrido el tiempo establecido entre transmisiones.
                 if ((clock() - ultimaTransmision)/CLOCKS_PER_SEC > INTERVALO_TRANSMISION) { 
-                    if (modo_ant == RECIBIR)
-                        medir_ambiente();
                     ultimaTransmision = clock();
-                    //mqtt_mandar_datos(tempValor, nivelValor, ecValor);
+                    mqtt_mandar_datos(tempValor, nivelValor, ecValor);
                 }
                 modo = RECIBIR;       
                 break;
@@ -211,23 +214,41 @@ void principal(void) {
             case RECIBIR:  // Recibir datos de Telegram.
                 // Dependiendo del lo que reciba irá a DISPENSAR, VACIAR o TRANSMITIR.
                 printf("\nRECIBIR_____________________________________________________________________\n");
-                modo = TRANSMITIR;
+                https_telegram_getUpdates(comando);
+                if (comando != NULL) {
+                    medir_ambiente();
+                    float datos[3] = {tempValor, ecValor, (float) nivelValor};
+                    int opc = respuestas_bot(comando, respuesta, datos);
+                    if (opc == 1) {
+                        https_telegram_sendMessage(respuesta);
+                        modo = TRANSMITIR;
+                    }
+                    else if (opc == 2) {
+                        https_telegram_sendMessage(respuesta);
+                        modo = VACIAR;
+                    }
+                    else if (opc == 3) {
+                        https_telegram_sendMessage(respuesta);
+                        modo = DISPENSAR;
+                    }
+                    else
+                        modo = TRANSMITIR;
+                } else
+                    modo = TRANSMITIR;
                 break;
             
             default:
                 break;
         }
-        modo_ant = modo_aux;
-        modo_aux = modo;
 
         vTaskDelay(100);  // Cada 1 seg.
     }
 }
 
 void app_main(void) {
-    ESP_LOGI(TAG, "[APP] Iniciando...");
-    ESP_LOGI(TAG, "[APP] Memoria libre: %d bytes", esp_get_free_heap_size());
-    ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
+    ESP_LOGI(SBC, "[APP] Iniciando...");
+    ESP_LOGI(SBC, "[APP] Memoria libre: %d bytes", esp_get_free_heap_size());
+    ESP_LOGI(SBC, "[APP] IDF version: %s", esp_get_idf_version());
 
     // Configuramos los puertos GPIO y el ADC de los dispositivos.
     gpio_set_direction(BOMBA_N_PIN, GPIO_MODE_OUTPUT);
@@ -243,15 +264,12 @@ void app_main(void) {
 
     ds18b20_init(TEMP_SENSOR_PIN);  // Iniciamos la sonda de temperatura.
     
-    //iniciar_mqtt();  // Iniciamos la conexión MQTT.
-    //mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard como atributos del servidor.
+    iniciar_mqtt();  // Iniciamos la conexión MQTT.
+    mqtt_mandar_credenciales_telegram();  // Mandamos las credenciales de Telegram a ThingsBoard como atributos del servidor.
     
     iniciar_http();  // Iniciamos la conexión HTTP.
 
     // Iniciamos las tareas.
-    //xTaskCreate(principal, "Modos sistema", 2048, NULL, 9, NULL);
-    //xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 1024, NULL, 8, NULL);
- 
-    https_telegram_sendMessage_perform_post("Prueba 4");
-    https_telegram_sendMessage_perform_post("Prueba 5");
+    xTaskCreate(principal, "Modos sistema", 4096, NULL, 9, NULL);
+    xTaskCreate(control_Bombas_Valvula, "Abrir_Cerrar", 1024, NULL, 8, NULL);
 }

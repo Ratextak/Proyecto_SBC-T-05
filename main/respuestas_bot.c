@@ -2,27 +2,38 @@
 #include <string.h>
 
 
-// %20 es el símbolo hexadecimal para el espacio.
-void respuestas_bot(char pregunta[], char *mensaje, float datos[]) {
-    if (strcmp(pregunta, "/datos") == 0)
-        sprintf(mensaje, "Temperatura: %0.1f ºC\nElectroconductividad: %f mS/cm\nTanque: %d", datos[0], datos[1], (int) datos[2]);
-    else if (strcmp(pregunta, "/vaciar") == 0)
-        strcat(mensaje, "Vaciando el tanque...");
-    else if (strcmp(pregunta, "/dispensar") == 0)
-        strcat(mensaje, "Dispensando nutrientes...");
-    else {
-        strcat(mensaje, "Las opciones disponibles:\n");
-        strcat(mensaje, "/datos: Muestra los valores de los sensores.\n");
-        strcat(mensaje, "/dispensar: Dispensa los nutrientes necesarios.\n");
-        strcat(mensaje, "/vaciar: Vacia el tanque.");
+int respuestas_bot(char pregunta[], char *mensaje, float datos[]) {
+    int opcion = 0;
+    char aux[100] = {0};
+
+    if (strcmp(pregunta, "/datos") == 0) {
+        sprintf(aux, "Temperatura: %0.1f ºC\nElectroconductividad: %f mS/cm\nTanque: %d", datos[0], datos[1], (int) datos[2]);
+        opcion = 1;
     }
+    else if (strcmp(pregunta, "/vaciar") == 0) {
+        sprintf(aux, "Vaciando el tanque...");
+        opcion = 2;
+    }
+    else if (strcmp(pregunta, "/dispensar") == 0) {
+        sprintf(aux, "Dispensando nutrientes...");
+        opcion = 3;
+    }
+    for (int i=0; i <100; i++)
+        mensaje[i] = aux[i];
+
+    return opcion;
 }
 
 void resp_dispensar(int nutriente, char *mensaje, float ec) {
+    char aux[100];
+    
     if (nutriente == 1)
-        sprintf(mensaje, "Nitrógeno: %f mS/cm", ec);
+        sprintf(aux, "Nitrógeno: %f mS/cm", ec);
     else if (nutriente == 2)
-        sprintf(mensaje, "Fósforo: %f mS/cm", ec);
+        sprintf(aux, "Fósforo: %f mS/cm", ec);
     else
-        sprintf(mensaje, "Potasio: %f mS/cm", ec);
+        sprintf(aux, "Potasio: %f mS/cm", ec);
+
+    for (int i=0; i <100; i++)
+        mensaje[i] = aux[i];
 }
