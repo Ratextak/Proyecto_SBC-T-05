@@ -33,9 +33,9 @@ static esp_adc_cal_characteristics_t adc1_chars;
 #define EC_REF      20.0
 
 // Valores de electroconductividad ideales del agua para cada nutriente (en orden de dispensión).
-#define EC_NITROGENO    2.15
+#define EC_NITROGENO    11.15
 #define EC_FOSFORO      1.2 + EC_NITROGENO
-#define EC_POTASIO      0.9 + EC_FOSFORO
+#define EC_POTASIO      2.9 + EC_FOSFORO
 
 #define INTERVALO_TRANSMISION   30  // Intervalo (seg) entre cada transmisión a ThingsBoard.
 
@@ -54,7 +54,7 @@ enum estadoTanque tanque = VACIO;  // Estado del tanque dónde se dispensarán l
 
 
 void medir_temperatura(void) {
-    tempValor = 21.0;//ds18b20_get_temp();  // Obtenemos la temperatura del sensor.
+    tempValor = ds18b20_get_temp();  // Obtenemos la temperatura del sensor.
     printf("Temperatura: %0.1f ºC\n", tempValor);
 }
 
@@ -136,10 +136,9 @@ void control_Bombas_Valvula(void) {
 }
 
 void principal(void) {
-    enum estadoSist modo_ant = RECIBIR;  // Modo previo del sistema.
-    enum estadoSist modo_aux = modo;
     int nutrientes = 1;  // Controla el nutriente que se dispensa: 1=N, 2=P, 3=K.
     clock_t ultimaTransmision = clock();  // Controlará cuando se realizó la última transmisión a ThingsBoard.
+    char comando[10], respuesta[100];  // Almacena el comando mandado por Telegram y la respuesta.
 
     while (1) {
         switch (modo) {
@@ -151,6 +150,8 @@ void principal(void) {
                         if (ecValor < EC_NITROGENO) {
                             bombaN = ABIERTA;
                             printf("---> Dispensando Nitrógeno.\n");
+                            resp_dispensar(nutrientes, respuesta, ecValor);
+                            https_telegram_sendMessage(respuesta);
                             vTaskDelay(200);
                         } else {
                             bombaN = CERRADA;
@@ -161,6 +162,8 @@ void principal(void) {
                         if (ecValor < EC_FOSFORO) {
                             bombaP = ABIERTA;
                             printf("---> Dispensando Fósforo.\n");
+                            resp_dispensar(nutrientes, respuesta, ecValor);
+                            https_telegram_sendMessage(respuesta);
                             vTaskDelay(200);
                         } else {
                             bombaP = CERRADA;
@@ -171,6 +174,8 @@ void principal(void) {
                         if (ecValor < EC_POTASIO) {
                             bombaK = ABIERTA;
                             printf("---> Dispensando Potasio.\n");
+                            resp_dispensar(nutrientes, respuesta, ecValor);
+                            https_telegram_sendMessage(respuesta);
                             vTaskDelay(200);
                         } else {
                             bombaK = CERRADA;
@@ -200,8 +205,6 @@ void principal(void) {
                 printf("\nTRANSMITIR_____________________________________________________________________\n");
                 // Si ha transcurrido el tiempo establecido entre transmisiones.
                 if ((clock() - ultimaTransmision)/CLOCKS_PER_SEC > INTERVALO_TRANSMISION) { 
-                    if (modo_ant == RECIBIR)
-                        medir_ambiente();
                     ultimaTransmision = clock();
                     mqtt_mandar_datos(tempValor, nivelValor, ecValor);
                 }
@@ -211,15 +214,32 @@ void principal(void) {
             case RECIBIR:  // Recibir datos de Telegram.
                 // Dependiendo del lo que reciba irá a DISPENSAR, VACIAR o TRANSMITIR.
                 printf("\nRECIBIR_____________________________________________________________________\n");
-                https_telegram_getMe();
-                modo = TRANSMITIR;
+                https_telegram_getUpdates(comando);
+                if (comando != NULL) {
+                    medir_ambiente();
+                    float datos[3] = {tempValor, ecValor, (float) nivelValor};
+                    int opc = respuestas_bot(comando, respuesta, datos);
+                    if (opc == 1) {
+                        https_telegram_sendMessage(respuesta);
+                        modo = TRANSMITIR;
+                    }
+                    else if (opc == 2) {
+                        https_telegram_sendMessage(respuesta);
+                        modo = VACIAR;
+                    }
+                    else if (opc == 3) {
+                        https_telegram_sendMessage(respuesta);
+                        modo = DISPENSAR;
+                    }
+                    else
+                        modo = TRANSMITIR;
+                } else
+                    modo = TRANSMITIR;
                 break;
             
             default:
                 break;
         }
-        modo_ant = modo_aux;
-        modo_aux = modo;
 
         vTaskDelay(100);  // Cada 1 seg.
     }

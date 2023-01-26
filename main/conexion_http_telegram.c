@@ -21,16 +21,15 @@ static const char *TAG_HTTP = "HTTP_Telegram";
 
 #define MAX_HTTP_OUTPUT_BUFFER 2048  // Tamaño máx del buffer de respuesta HTTP.
 char buffer_respuesta[MAX_HTTP_OUTPUT_BUFFER] = {0};   // Buffer para guardar la respuesta.
-char url[100];  // Url que se formará para los POST y GET.
+char url[150];  // Url que se formará para los POST y GET.
 
 esp_http_client_handle_t cliente_http;  // Cliente HTTP.
 esp_err_t mensaje_error;
 
+int ultimo_updateID = 0;
+
 // WIFI configuration.
 #define ESP_MAXIMUM_RETRY  10
-
-/* FreeRTOS event group to signal when we are connected*/
-static EventGroupHandle_t s_wifi_event_group;
 
 /* The event group allows multiple bits for each event, but we only care about two events:
  * - we are connected to the AP with an IP
@@ -126,9 +125,9 @@ void http_app_start(void) {
     cliente_http = esp_http_client_init(&config);
 }
 
-static void https_telegram_getMe(void) {
+static void https_telegram_getUpdates(char *respuesta) {
     // Preparamos y fijamos el url.
-    sprintf(url, "%s/getUpdates", BOT_URL);
+    sprintf(url, "%s/getUpdates?offset=%d&limit=1", BOT_URL, ultimo_updateID+1);
     esp_http_client_set_url(cliente_http, url);
 
     ESP_LOGI(TAG_HTTP, "Recibiré GET");
@@ -142,6 +141,28 @@ static void https_telegram_getMe(void) {
         ESP_LOGW(TAG_HTTP, "Output del GET: %s", buffer_respuesta);
     } else
         ESP_LOGE(TAG_HTTP, "Error perform http request %s", esp_err_to_name(mensaje_error));
+    
+    cJSON *json_devuelto = cJSON_Parse(buffer_respuesta);
+    cJSON *result = cJSON_GetObjectItem (json_devuelto, "result");
+    cJSON *resultArray = cJSON_GetArrayItem (result, 0);
+    if (resultArray != NULL) {
+        cJSON *updateID = cJSON_GetObjectItem (resultArray, "update_id");
+        if (updateID->valueint != ultimo_updateID) {
+            ultimo_updateID = updateID->valueint;
+            cJSON *message = cJSON_GetObjectItem (resultArray, "message");
+            cJSON *text = cJSON_GetObjectItem (message, "text");
+            if (text != NULL) {
+                for (int i=0; i <10; i++)
+                    respuesta[i] = text->valuestring[i];
+            } else
+                *respuesta = NULL;
+        } else
+            *respuesta = NULL;
+    } else 
+        *respuesta = NULL;
+    
+    memset(buffer_respuesta, NULL, MAX_HTTP_OUTPUT_BUFFER);
+    cJSON_Delete(json_devuelto);
 }
 
 static void https_telegram_sendMessage(char mensaje[]) {
@@ -170,6 +191,7 @@ static void https_telegram_sendMessage(char mensaje[]) {
     } else
         ESP_LOGE(TAG_HTTP, "HTTP POST request failed: %s", esp_err_to_name(mensaje_error));
 
+    memset(buffer_respuesta, NULL, MAX_HTTP_OUTPUT_BUFFER);
     cJSON_Delete(root);
     free(post_data);
 }
